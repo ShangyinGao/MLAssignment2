@@ -1,65 +1,62 @@
 % Assignment 2 Exercise 1 GMM and EM Algorithm
 % Date: 2017-08-19
 % Author: ShangyinGao
+clear;
+clc;
+close all;
 
 %% load data
 load('dataGMM.mat');
-% visualization Data
-Data = Data';
-scatter(Data(:, 1), Data(:, 2));
-hold on;
+counter = 0;
 
 %% init GMM parameters
-pi = [1/4, 1/4, 1/4, 1/4]';
-[idx, mu] = kmeans(Data, 4);
-sigma = zeros(4,2);
+[idx, mu] = kmeans(Data',4);
+numClasse = [sum(idx==1), sum(idx==2), sum(idx==3), sum(idx==4)];
+pi = numClasse/size(Data,2);
+sigma = zeros(2,2,4);
 for i = 1:4
-    for j = 1:2
-            
-        tmp = Data(idx==i, :);
-        sigma(i,j) = var(tmp(j,:));
-        
-    end
+    labels = find(idx == i);
+    sigma(:,:,i) = (Data(:,labels) - repmat(mu(i,:)',1,numClasse(i)))*...
+        (Data(:,labels) - repmat(mu(i,:)',1,numClasse(i)))';
 end
-% visualization mu
-scatter(mu(:, 1), mu(:, 2), '*');
-hold on;
 
+while 1
 %% E-step
 p = zeros(300, 4);
+for i = 1:4
+    p(:,i) = pi(i).*mvnpdf(Data', mu(i, :), sigma(:,:,i));
+end
+s = sum(p,2);
 for i = 1:300
-    tmp = 0;
-    for k = 1:4
-        tmp = tmp + pi(k)*mvnpdf(Data(i, :), mu(k, :), sigma(k, :));
-    end
-    for j = 1:4
-        % ith data, jth class
-        p(i,j) = (pi(j)*mvnpdf(Data(i, :), mu(j, :), sigma(j, :)))/(tmp);
-    end
+    p(i,:) = p(i,:)/s(i);
 end
 
 %% M-step
-% update mu
-muNew = zeros(4, 2);
-piNew = zeros(1, 4);
-sigmaNew = zeros(4, 2);
+% update mu sigma and pi
+muNew = zeros(4,2);
+piNew = zeros(1,4);
+sigmaNew = zeros(2,2,4);
 nk = sum(p);
+piNew = nk/300;
 for i = 1:4
-    muNew(i, :) = (Data'*p(:, i))'/nk(i);
-    sigmaNew(i, :) = ((Data-repmat(muNew(i, :), 300, 1)).^2'*p(:, i))/nk(i);
-    piNew(i) = nk(i)/300;
+    muNew(i, :) = (Data*p(:, i))'/nk(i);
+    sumTmp = zeros(2,2);
+    for j = 1:300
+        sumTmp = sumTmp + p(j,i).*(Data(:, j)-muNew(i,:))*(Data(:, j)-muNew(i,:))';
+    end
+    sigmaNew(:,:,i) = sumTmp./nk(i);
 end
-% visualization muNew
-scatter(muNew(:, 1), muNew(:, 2), 'd');
-hold on;
 
 %% check convergence
-% likelihood 
-lh = 0;
-tmp = 0;
-for i = 1:300
-    for j = 1:4
-        tmp = tmp + log(pi(j)*mvnpdf(Data(i, :), mu(j, :), sigma(j, :)));
-    end
-    lh = lh + tmp;
+converge = sum(sumabs((muNew - mu)))+sum(sumabs((sigmaNew-sigma)))+sum(sumabs(piNew-pi));
+
+if converge <= 1e-6
+    break
+else
+mu = muNew;
+pi = piNew;
+sigma = sigmaNew;
+counter = counter + 1;
+end
+
 end
