@@ -6,9 +6,9 @@ function WalkQLearning(s)
 % init Q matrix
 Q=zeros(16,4);
 % number of repeat steps
-T = 300;
+T = 500;
 % init some other 
-epsilon = 0.5;
+epsilon = 0.7;
 alpha = 0.7;
 gamma = 0.3;
 
